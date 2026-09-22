@@ -15,10 +15,6 @@ env/
 data/raw/*.csv
 data/raw/*.zip
 
-# Trained model artifacts (reproducible via training script)
-models/*.joblib
-models/*.pkl
-
 # IDE
 .vscode/
 .idea/

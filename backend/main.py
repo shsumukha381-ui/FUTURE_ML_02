@@ -100,11 +100,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow frontend origin (default: localhost:5500, any localhost port)
+# CORS — allow Vercel frontend + localhost for dev
+_cors_origins = [
+    "https://future-ml-02.vercel.app",
+    "https://future-ml-02-gac5i6v2-neural-networks.vercel.app",
+    "http://localhost:5500",
+    "http://localhost:3000",
+    "http://127.0.0.1:5500",
+    "http://127.0.0.1:3000",
+    "null",  # file:// origin sends 'null'
+]
+# Allow additional origins via environment variable (comma-separated)
+import os
+_extra_origins = os.environ.get("CORS_ORIGINS", "")
+if _extra_origins:
+    _cors_origins.extend([o.strip() for o in _extra_origins.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to specific frontend origin
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins for demo/portfolio project
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

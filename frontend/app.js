@@ -12,7 +12,11 @@
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
-const API_BASE = window.API_BASE_URL || 'http://localhost:8000';
+// Auto-detect: if running on Vercel or any remote host, use the deployed backend.
+// Override via window.API_BASE_URL if needed.
+const RENDER_BACKEND = 'https://support-ticket-classifier-api-k2eq.onrender.com';
+const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname) || window.location.protocol === 'file:';
+const API_BASE = window.API_BASE_URL || (isLocal ? 'http://localhost:8000' : RENDER_BACKEND);
 
 // Chart.js default styling for dark theme
 Chart.defaults.color = '#94a3b8';
