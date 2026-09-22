@@ -1,16 +1,13 @@
 {
-  "buildCommand": null,
+  "version": 2,
   "outputDirectory": "frontend",
-  "framework": null,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=3600" }
-      ]
+  "functions": {
+    "api/index.py": {
+      "runtime": "@vercel/python@latest",
+      "maxDuration": 30
     }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" }
   ]
 }
