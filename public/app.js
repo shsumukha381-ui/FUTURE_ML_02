@@ -155,7 +155,11 @@ function initTextarea() {
 // ---------------------------------------------------------------------------
 async function checkHealth() {
     try {
-        const res = await fetch(`${API_BASE}/health`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         const data = await res.json();
         const dot = document.getElementById('statusDot');
         const text = document.getElementById('statusText');
@@ -511,7 +515,10 @@ function clearBatch() {
 // ---------------------------------------------------------------------------
 async function loadModelInfo() {
     try {
-        const res = await fetch(`${API_BASE}/model-info`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`${API_BASE}/model-info`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         renderModelInfo(data);
