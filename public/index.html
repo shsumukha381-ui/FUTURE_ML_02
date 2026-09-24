@@ -3,236 +3,1168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AI-powered support ticket classification and prioritization system. Classify tickets into categories and priority levels with confidence scores.">
-    <title>Support Ticket Classifier — AI-Powered Ticket Triage</title>
+    <meta name="description" content="SupportMind — AI-Powered Support Ticket Classification & Prioritization Platform for enterprise teams.">
+    <title>SupportMind — AI Support Intelligence</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Header -->
-        <header class="app-header">
-            <h1>🎫 Support Ticket Classifier</h1>
-            <p>AI-powered ticket categorization &amp; priority prediction</p>
-            <div class="status-badge" id="statusBadge">
-                <span class="status-dot" id="statusDot"></span>
-                <span id="statusText">Connecting to API...</span>
-            </div>
-        </header>
-
-        <!-- Error Banner -->
-        <div class="error-banner" id="errorBanner">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <span id="errorText"></span>
-            <button class="close-btn" onclick="hideError()">&times;</button>
-        </div>
-
-        <!-- Tab Navigation -->
-        <nav class="tab-nav" role="tablist">
-            <button class="tab-btn active" data-tab="classify" role="tab" aria-selected="true" id="tab-classify">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
-                Classify
-            </button>
-            <button class="tab-btn" data-tab="batch" role="tab" aria-selected="false" id="tab-batch">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                Batch Upload
-            </button>
-            <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false" id="tab-dashboard">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-                Dashboard
-            </button>
-        </nav>
-
+    <div class="app-layout">
         <!-- ============================================================ -->
-        <!-- TAB 1: Single Ticket Classifier -->
+        <!-- LEFT SIDEBAR -->
         <!-- ============================================================ -->
-        <section class="tab-content active" id="content-classify" role="tabpanel">
-            <div class="card">
-                <div class="card-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    Paste Ticket Text
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="logo-icon"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                 </div>
-                <div class="textarea-wrapper">
-                    <textarea
-                        class="ticket-textarea"
-                        id="ticketText"
-                        placeholder="Paste your support ticket text here...&#10;&#10;Example: My laptop screen is flickering and I cannot work. I've tried restarting but the issue persists. This is urgent as I have a deadline tomorrow."
-                        aria-label="Support ticket text"
-                    ></textarea>
-                    <span class="char-count" id="charCount">0 chars</span>
-                </div>
-                <div class="btn-group">
-                    <button class="btn btn-primary" id="classifyBtn" onclick="classifySingle()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                        Classify Ticket
-                    </button>
-                    <button class="btn btn-secondary" id="clearBtn" onclick="clearSingle()">
-                        Clear
-                    </button>
+                <div class="logo-text">
+                    <h2>SupportMind</h2>
+                    <span>AI Intelligence</span>
                 </div>
             </div>
-
-            <!-- Results -->
-            <div class="results-container" id="singleResults">
-                <div class="card">
-                    <div class="card-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                        Classification Results
-                    </div>
-
-                    <div class="result-grid">
-                        <div class="result-item">
-                            <div class="result-label">Category</div>
-                            <div class="result-value" id="resultCategory">—</div>
-                            <div class="confidence-bar-container">
-                                <div class="confidence-bar-label">
-                                    <span>Confidence</span>
-                                    <span id="catConfText">—</span>
-                                </div>
-                                <div class="confidence-bar">
-                                    <div class="confidence-bar-fill" id="catConfBar" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="result-item">
-                            <div class="result-label">Priority</div>
-                            <div class="result-value" id="resultPriority">—</div>
-                            <div class="confidence-bar-container">
-                                <div class="confidence-bar-label">
-                                    <span>Confidence</span>
-                                    <span id="priConfText">—</span>
-                                </div>
-                                <div class="confidence-bar">
-                                    <div class="confidence-bar-fill" id="priConfBar" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Category probabilities -->
-                    <div class="probabilities-section">
-                        <div class="probabilities-title">Category Probabilities</div>
-                        <div id="catProbBars"></div>
-                    </div>
-
-                    <!-- Priority probabilities -->
-                    <div class="probabilities-section">
-                        <div class="probabilities-title">Priority Probabilities</div>
-                        <div id="priProbBars"></div>
-                    </div>
-                </div>
+            
+            <div class="sidebar-status">
+                <span class="status-dot online"></span>
+                AI Engine — Online
             </div>
-        </section>
 
-        <!-- ============================================================ -->
-        <!-- TAB 2: Batch Upload -->
-        <!-- ============================================================ -->
-        <section class="tab-content" id="content-batch" role="tabpanel">
-            <div class="card">
-                <div class="card-title">
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-link active" data-target="dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                    Dashboard
+                </a>
+                <a href="#ticket-analyzer" class="nav-link" data-target="ticket-analyzer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    Ticket Analyzer <span class="badge badge-ai">AI</span>
+                </a>
+                <a href="#model-training" class="nav-link" data-target="model-training">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    Model Training
+                </a>
+                <a href="#dataset-upload" class="nav-link" data-target="dataset-upload">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Upload CSV File
-                </div>
-                <div class="upload-zone" id="uploadZone">
-                    <input type="file" accept=".csv" id="csvFileInput" aria-label="Upload CSV file">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    <p>Drop your CSV file here or <strong>click to browse</strong></p>
-                    <span class="hint">CSV with a "text", "Document", or "description" column • Max 1000 rows</span>
-                </div>
-                <div id="uploadedFileInfo" style="display:none; margin-top: var(--space-md);">
-                    <span class="hint" id="uploadedFileName"></span>
-                    <button class="btn btn-secondary btn-sm" onclick="clearBatch()" style="margin-left: var(--space-md);">Remove</button>
-                </div>
-            </div>
-
-            <!-- Batch Results -->
-            <div id="batchResults" style="display:none;">
-                <div class="card">
-                    <div class="card-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-                        Batch Results
-                    </div>
-
-                    <div class="filter-bar">
-                        <select class="filter-select" id="filterCategory" onchange="filterBatchTable()">
-                            <option value="">All Categories</option>
-                        </select>
-                        <select class="filter-select" id="filterPriority" onchange="filterBatchTable()">
-                            <option value="">All Priorities</option>
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                        <button class="btn btn-secondary btn-sm" onclick="exportBatchCSV()">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            Export CSV
-                        </button>
-                        <span class="result-count" id="batchCount"></span>
-                    </div>
-
-                    <div class="table-container" style="max-height: 500px; overflow-y: auto;">
-                        <table class="data-table" id="batchTable">
-                            <thead>
-                                <tr>
-                                    <th onclick="sortBatchTable('index')"># <span class="sort-icon">↕</span></th>
-                                    <th onclick="sortBatchTable('text')">Ticket Text <span class="sort-icon">↕</span></th>
-                                    <th onclick="sortBatchTable('category')">Category <span class="sort-icon">↕</span></th>
-                                    <th onclick="sortBatchTable('category_confidence')">Cat. Conf. <span class="sort-icon">↕</span></th>
-                                    <th onclick="sortBatchTable('priority')">Priority <span class="sort-icon">↕</span></th>
-                                    <th onclick="sortBatchTable('priority_confidence')">Pri. Conf. <span class="sort-icon">↕</span></th>
-                                </tr>
-                            </thead>
-                            <tbody id="batchTableBody">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ============================================================ -->
-        <!-- TAB 3: Dashboard -->
-        <!-- ============================================================ -->
-        <section class="tab-content" id="content-dashboard" role="tabpanel">
-            <!-- Model Info -->
-            <div class="card" id="modelInfoCard">
-                <div class="card-title">
+                    Dataset Upload
+                </a>
+                <a href="#analytics" class="nav-link" data-target="analytics">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    Analytics
+                </a>
+                <a href="#team" class="nav-link" data-target="team">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Team
+                </a>
+                <a href="#admin" class="nav-link" data-target="admin">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Admin Panel
+                </a>
+                <a href="#settings" class="nav-link" data-target="settings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    Model Information
+                    Settings
+                </a>
+                <a href="#api-docs" class="nav-link" data-target="api-docs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    API Docs
+                </a>
+            </nav>
+
+            <div class="sidebar-user">
+                <div class="user-avatar">A</div>
+                <div class="user-info">
+                    <div class="user-name">Admin User</div>
+                    <div class="user-email">admin@supportmind.ai</div>
                 </div>
-                <div class="metrics-grid" id="modelMetrics">
-                    <div class="empty-state">
-                        <p>Loading model information...</p>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- MOBILE SIDEBAR OVERLAY -->
+        <!-- ============================================================ -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+        <!-- ============================================================ -->
+        <!-- MAIN CONTENT AREA -->
+        <!-- ============================================================ -->
+        <div class="main-wrapper">
+            <!-- TOP BAR -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Toggle menu">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <h1 id="pageTitle">Dashboard</h1>
+                    <p id="pageSubtitle">Good evening, Admin</p>
+                </div>
+                
+                <div class="topbar-right">
+                    <div class="search-box">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" placeholder="Search tickets..." id="globalSearch">
+                        <span class="shortcut">⌘K</span>
                     </div>
+                    
+                    <div class="status-badge" id="statusBadge">
+                        <span class="status-dot online" id="statusDot"></span>
+                        <span id="statusText">AI Active</span>
+                    </div>
+
+                    <div class="notification-bell">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <span class="badge-count">3</span>
+                    </div>
+                    
+                    <div class="user-avatar small">A</div>
                 </div>
+            </header>
+
+            <div class="error-banner" id="errorBanner">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span id="errorText"></span>
+                <button class="close-btn" onclick="hideError()">&times;</button>
             </div>
 
-            <!-- Charts — populated from batch data or model info -->
-            <div class="chart-grid">
-                <div class="chart-card">
-                    <h3>Category Distribution</h3>
-                    <div class="chart-wrapper">
-                        <canvas id="categoryChart"></canvas>
+            <main class="content-area">
+                
+                <!-- ============================================================ -->
+                <!-- PAGE 1: DASHBOARD -->
+                <!-- ============================================================ -->
+                <section class="page-view active" id="view-dashboard">
+                    <div class="page-header-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="refreshDashboard()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            Refresh
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="liveBtn">
+                            <span class="status-dot online" style="width:6px;height:6px;"></span>
+                            Live
+                        </button>
                     </div>
-                </div>
-                <div class="chart-card">
-                    <h3>Priority Distribution</h3>
-                    <div class="chart-wrapper">
-                        <canvas id="priorityChart"></canvas>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Per-class metrics table -->
-            <div class="card" id="classMetricsCard" style="display:none;">
-                <div class="card-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    Per-Class Evaluation Metrics
-                </div>
-                <div id="classMetricsContent"></div>
-            </div>
-        </section>
+                    <div class="metrics-grid">
+                        <!-- Card 1 — Total Tickets (Real) -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                <span>Total Tickets</span>
+                                <span class="trend up">+12%</span>
+                            </div>
+                            <div class="metric-value" id="valTotalTickets">9,568</div>
+                            <div class="metric-caption">All time (Dataset)</div>
+                        </div>
+
+                        <!-- Card 2 — Critical Tickets (Demo) -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                <span>Critical Tickets</span>
+                                <span class="trend down">-4%</span>
+                            </div>
+                            <div class="metric-value" style="color:#ef4444">42</div>
+                            <div class="metric-caption">Needs attention <span class="demo-tag">Demo</span></div>
+                        </div>
+
+                        <!-- Card 3 — Resolved Today (Demo) -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                <span>Resolved Today</span>
+                                <span class="trend up">+18%</span>
+                            </div>
+                            <div class="metric-value" style="color:#22c55e">284</div>
+                            <div class="metric-caption">Last 24 hours <span class="demo-tag">Demo</span></div>
+                        </div>
+
+                        <!-- Card 4 — AI Accuracy (Real) -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                <span>AI Accuracy</span>
+                                <span class="trend up">+2.1%</span>
+                            </div>
+                            <div class="metric-value" id="valAccuracy">85.8%</div>
+                            <div class="metric-caption" id="valModelName">Model: LinearSVC</div>
+                        </div>
+
+                        <!-- Card 5 — Avg Response Time (Demo) -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span>Avg Response Time</span>
+                                <span class="trend up">-30m</span>
+                            </div>
+                            <div class="metric-value">2.4h</div>
+                            <div class="metric-caption">Target: &lt; 4h <span class="demo-tag">Demo</span></div>
+                        </div>
+
+                        <!-- Card 6 — CSAT Score (Demo) -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                                <span>CSAT Score</span>
+                                <span class="trend up">+0.2</span>
+                            </div>
+                            <div class="metric-value" style="color:#f59e0b">4.8/5</div>
+                            <div class="metric-caption">Customer satisfaction <span class="demo-tag">Demo</span></div>
+                        </div>
+
+                        <!-- Card 7 — Open Tickets (Demo) -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h0M2 9.5h20"/></svg>
+                                <span>Open Tickets</span>
+                                <span class="trend down">+5%</span>
+                            </div>
+                            <div class="metric-value">1,204</div>
+                            <div class="metric-caption">In queue <span class="demo-tag">Demo</span></div>
+                        </div>
+
+                        <!-- Card 8 — SLA Breach Risk (Demo) -->
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                <span>SLA Breach Risk</span>
+                                <span class="trend down">-2</span>
+                            </div>
+                            <div class="metric-value" style="color:#ef4444">14</div>
+                            <div class="metric-caption">Tickets at risk <span class="demo-tag">Demo</span></div>
+                        </div>
+                    </div>
+
+                    <div class="chart-grid">
+                        <div class="chart-card large">
+                            <h3>Ticket Volume Trend <span class="demo-tag">Demo</span></h3>
+                            <div class="chart-wrapper">
+                                <canvas id="volumeTrendChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Ticket Categories</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="categoryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- PAGE 2: TICKET ANALYZER -->
+                <!-- ============================================================ -->
+                <section class="page-view" id="view-ticket-analyzer">
+                    <p class="intro-text">Paste any support ticket — AI will classify, prioritize, and analyze it instantly.</p>
+                    
+                    <div class="analyzer-layout">
+                        <!-- Left column: Input -->
+                        <div class="analyzer-input-col">
+                            <div class="card">
+                                <div class="card-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    Ticket Content
+                                </div>
+                                <div class="sample-buttons">
+                                    <button class="btn btn-ghost btn-sm" onclick="loadSample(0)">Sample 1</button>
+                                    <button class="btn btn-ghost btn-sm" onclick="loadSample(1)">Sample 2</button>
+                                    <button class="btn btn-ghost btn-sm" onclick="loadSample(2)">Sample 3</button>
+                                    <button class="btn btn-ghost btn-sm" onclick="loadSample(3)">Sample 4</button>
+                                </div>
+                                <div class="textarea-wrapper">
+                                    <textarea
+                                        class="ticket-textarea"
+                                        id="ticketText"
+                                        placeholder="Paste your support ticket text here..."
+                                        aria-label="Support ticket text"
+                                    ></textarea>
+                                    <span class="char-count" id="charCount">0 chars · 0 words</span>
+                                </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-primary" id="classifyBtn" onclick="classifySingle()">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                        Analyze with AI
+                                    </button>
+                                    <button class="btn btn-icon" id="clearBtn" title="Reset" onclick="clearSingle()">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- NLP Pipeline Panel -->
+                            <div class="card mt-md">
+                                <div class="card-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                                    NLP Pipeline
+                                </div>
+                                <ul class="pipeline-list">
+                                    <li>
+                                        <div class="pipeline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                        <div class="pipeline-text"><strong>Noise Removal & URL Stripping</strong> — Removes URLs, email addresses, and HTML tags from ticket text.</div>
+                                    </li>
+                                    <li>
+                                        <div class="pipeline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                        <div class="pipeline-text"><strong>Emoji & Special Character Handling</strong> — Strips punctuation and special characters, keeping only alphanumeric text.</div>
+                                    </li>
+                                    <li>
+                                        <div class="pipeline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                        <div class="pipeline-text"><strong>Normalization</strong> — Lowercases text, collapses whitespace, and filters short tokens (&lt; 2 chars).</div>
+                                    </li>
+                                    <li>
+                                        <div class="pipeline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                        <div class="pipeline-text"><strong>Stopword Removal</strong> — Removes English stopwords using NLTK corpus.</div>
+                                    </li>
+                                    <li>
+                                        <div class="pipeline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                        <div class="pipeline-text"><strong>Lemmatization</strong> — Reduces words to base form using WordNet lemmatizer.</div>
+                                    </li>
+                                    <li>
+                                        <div class="pipeline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                        <div class="pipeline-text"><strong>TF-IDF Vectorization</strong> — Extracts up to 10,000 features with unigrams + bigrams, sublinear TF scaling.</div>
+                                    </li>
+                                    <li>
+                                        <div class="pipeline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                        <div class="pipeline-text"><strong>Dual Model Inference</strong> — Predicts Category (LinearSVC + Platt calibration) and Priority (LogisticRegression).</div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Right column: Results -->
+                        <div class="analyzer-results-col">
+                            <div class="card fill-height" id="resultsCard">
+                                <div class="card-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                    Analysis Results
+                                </div>
+                                
+                                <div id="emptyResultsState" class="empty-state">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="empty-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                    <p>AI analysis results will appear here.<br>Paste a ticket and click Analyze.</p>
+                                </div>
+
+                                <div id="singleResults" style="display:none;">
+                                    <div class="result-grid">
+                                        <div class="result-item">
+                                            <div class="result-label">Category</div>
+                                            <div class="result-value" id="resultCategory">—</div>
+                                            <div class="confidence-bar-container">
+                                                <div class="confidence-bar-label">
+                                                    <span>Confidence</span>
+                                                    <span id="catConfText">—</span>
+                                                </div>
+                                                <div class="confidence-bar">
+                                                    <div class="confidence-bar-fill" id="catConfBar" style="width: 0%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="result-item">
+                                            <div class="result-label">Priority</div>
+                                            <div class="result-value" id="resultPriority">—</div>
+                                            <div class="confidence-bar-container">
+                                                <div class="confidence-bar-label">
+                                                    <span>Confidence</span>
+                                                    <span id="priConfText">—</span>
+                                                </div>
+                                                <div class="confidence-bar">
+                                                    <div class="confidence-bar-fill" id="priConfBar" style="width: 0%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="probabilities-section">
+                                        <div class="probabilities-title">Category Probabilities</div>
+                                        <div id="catProbBars"></div>
+                                    </div>
+
+                                    <div class="probabilities-section">
+                                        <div class="probabilities-title">Priority Probabilities</div>
+                                        <div id="priProbBars"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- PAGE 3: MODEL TRAINING -->
+                <!-- ============================================================ -->
+                <section class="page-view" id="view-model-training">
+                    <!-- Best model badge -->
+                    <div class="best-model-badge" id="bestModelBadge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <span>Best: <strong id="bestModelName">LinearSVC</strong> — Category F1: <strong id="bestModelScore">85.1%</strong></span>
+                    </div>
+
+                    <div class="two-col-layout">
+                        <!-- Training Configuration -->
+                        <div class="card">
+                            <div class="card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9"/></svg>
+                                Training Configuration <span class="demo-tag">Demo Controls</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Algorithm</label>
+                                    <select class="form-select" id="trainAlgorithm">
+                                        <option value="LinearSVC">LinearSVC (CalibratedClassifierCV)</option>
+                                        <option value="LogisticRegression">Logistic Regression</option>
+                                        <option value="RandomForest">Random Forest</option>
+                                        <option value="MultinomialNB">Multinomial Naive Bayes</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Feature Extraction</label>
+                                    <select class="form-select" id="trainFeatures">
+                                        <option value="tfidf">TF-IDF (Current)</option>
+                                        <option value="bow">Bag of Words</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Dataset</label>
+                                    <select class="form-select" id="trainDataset">
+                                        <option value="all_tickets">all_tickets_processed_improved_v3.csv</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Cross-Validation Folds</label>
+                                    <input type="number" class="form-input" value="5" min="2" max="10" id="trainFolds">
+                                </div>
+                                <div class="form-group">
+                                    <label>Test Split</label>
+                                    <input type="number" class="form-input" value="0.2" min="0.1" max="0.5" step="0.05" id="trainTestSplit">
+                                </div>
+                                <div class="form-group">
+                                    <label>Max Features (TF-IDF)</label>
+                                    <input type="number" class="form-input" value="10000" min="1000" max="50000" step="1000" id="trainMaxFeatures">
+                                </div>
+                            </div>
+                            <div class="btn-group mt-md">
+                                <button class="btn btn-primary" id="startTrainingBtn" onclick="simulateTraining()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                    Start Training
+                                </button>
+                                <button class="btn btn-secondary">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Export Model
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Training Curves -->
+                        <div>
+                            <div class="card">
+                                <div class="card-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                                    Accuracy Curve <span class="demo-tag">Demo</span>
+                                </div>
+                                <div class="chart-wrapper" style="height:200px;">
+                                    <canvas id="accuracyCurveChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="card-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                                    Loss Curve <span class="demo-tag">Demo</span>
+                                </div>
+                                <div class="chart-wrapper" style="height:200px;">
+                                    <canvas id="lossCurveChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model Comparison Table -->
+                    <div class="card mt-md">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                            Model Comparison — Category Classification
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table" id="modelComparisonTable">
+                                <thead>
+                                    <tr>
+                                        <th>Model</th>
+                                        <th>Accuracy</th>
+                                        <th>F1 (Macro)</th>
+                                        <th>Std Dev</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modelComparisonBody">
+                                    <!-- Populated by JS from real cross-validation data -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card mt-md">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                            Model Comparison — Priority Classification
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table" id="priorityComparisonTable">
+                                <thead>
+                                    <tr>
+                                        <th>Model</th>
+                                        <th>Accuracy</th>
+                                        <th>F1 (Macro)</th>
+                                        <th>Std Dev</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="priorityComparisonBody">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- PAGE 4: DATASET UPLOAD -->
+                <!-- ============================================================ -->
+                <section class="page-view" id="view-dataset-upload">
+                    <div class="card">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload Dataset
+                        </div>
+                        <div class="upload-zone" id="uploadZone">
+                            <input type="file" accept=".csv,.xlsx,.json" id="csvFileInput" aria-label="Upload dataset file">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <p>Drop your dataset file here or <strong>click to browse</strong></p>
+                            <span class="hint">CSV, Excel, or JSON · Max 15 MB · Max 1,000 rows for batch classification</span>
+                        </div>
+                        <div class="uploaded-file-info" id="uploadedFileInfo" style="display:none;">
+                            <span id="uploadedFileName"></span>
+                            <button class="btn btn-ghost btn-sm" onclick="clearBatch()">Remove</button>
+                        </div>
+                    </div>
+
+                    <!-- Data Cleaning Options -->
+                    <div class="card">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                            Data Cleaning Options
+                        </div>
+                        <div class="toggle-grid">
+                            <div class="toggle-item">
+                                <div class="toggle-info">
+                                    <div class="toggle-label">Remove duplicate tickets</div>
+                                    <div class="toggle-desc">Eliminates exact text duplicates from the dataset</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" checked id="cleanDuplicates">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-info">
+                                    <div class="toggle-label">Fill missing text with placeholder</div>
+                                    <div class="toggle-desc">Replaces empty text fields with "[no content]" <span class="demo-tag">Demo</span></div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="cleanMissing">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-info">
+                                    <div class="toggle-label">Auto-balance class distribution</div>
+                                    <div class="toggle-desc">Oversample minority classes to balance training <span class="demo-tag">Demo</span></div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="cleanBalance">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-info">
+                                    <div class="toggle-label">Remove tickets with fewer than 5 words</div>
+                                    <div class="toggle-desc">Filters out very short tickets that lack context</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" checked id="cleanShort">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-info">
+                                    <div class="toggle-label">Strip HTML tags from text</div>
+                                    <div class="toggle-desc">Removes HTML markup — part of the real NLP pipeline</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" checked id="cleanHTML">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-info">
+                                    <div class="toggle-label">Normalize whitespace & encoding</div>
+                                    <div class="toggle-desc">Collapses extra spaces and normalizes Unicode — part of real pipeline</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" checked id="cleanWhitespace">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Batch Results (shown after upload) -->
+                    <div class="card" id="batchResults" style="display:none;">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                            Classification Results
+                        </div>
+                        <div class="filter-bar">
+                            <select class="filter-select" id="filterCategory" onchange="filterBatchTable()">
+                                <option value="">All Categories</option>
+                            </select>
+                            <select class="filter-select" id="filterPriority" onchange="filterBatchTable()">
+                                <option value="">All Priorities</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                            <span class="result-count" id="batchCount">0 tickets</span>
+                            <button class="btn btn-secondary btn-sm" onclick="exportBatchCSV()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Export CSV
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th onclick="sortBatchTable('index')"># ↕</th>
+                                        <th onclick="sortBatchTable('text')">Text ↕</th>
+                                        <th onclick="sortBatchTable('category')">Category ↕</th>
+                                        <th onclick="sortBatchTable('category_confidence')">Conf ↕</th>
+                                        <th onclick="sortBatchTable('priority')">Priority ↕</th>
+                                        <th onclick="sortBatchTable('priority_confidence')">Conf ↕</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="batchTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- PAGE 5: ANALYTICS -->
+                <!-- ============================================================ -->
+                <section class="page-view" id="view-analytics">
+                    <div class="page-header-actions">
+                        <div class="tab-pills">
+                            <button class="pill active" onclick="setAnalyticsRange(this, '7d')">7 days</button>
+                            <button class="pill" onclick="setAnalyticsRange(this, '30d')">30 days</button>
+                            <button class="pill" onclick="setAnalyticsRange(this, '90d')">90 days</button>
+                            <button class="pill" onclick="setAnalyticsRange(this, 'all')">All time</button>
+                        </div>
+                        <button class="btn btn-secondary btn-sm">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Export
+                        </button>
+                    </div>
+
+                    <div class="metrics-grid four-col">
+                        <div class="metric-card">
+                            <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Tickets This Week</span></div>
+                            <div class="metric-value">1,247</div>
+                            <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Avg Resolution</span></div>
+                            <div class="metric-value">3.2h</div>
+                            <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Top Category</span></div>
+                            <div class="metric-value" id="analyticsTopCategory" style="font-size:1.25rem;">Hardware</div>
+                            <div class="metric-caption">Most frequent</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>Active Agents</span></div>
+                            <div class="metric-value">12</div>
+                            <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                        </div>
+                    </div>
+
+                    <div class="chart-grid">
+                        <div class="chart-card large">
+                            <h3>Daily Ticket Volume <span class="demo-tag">Demo</span></h3>
+                            <div class="chart-wrapper"><canvas id="analyticsVolumeChart"></canvas></div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Sentiment Distribution <span class="demo-tag">Future Feature</span></h3>
+                            <div class="chart-wrapper"><canvas id="sentimentChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            Category Workload Distribution
+                        </div>
+                        <div class="chart-wrapper" style="height:300px;"><canvas id="categoryWorkloadChart"></canvas></div>
+                    </div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- PAGE 6: TEAM -->
+                <!-- ============================================================ -->
+                <section class="page-view" id="view-team">
+                    <div class="metrics-grid four-col">
+                        <div class="metric-card">
+                            <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>Total Agents</span></div>
+                            <div class="metric-value">24</div>
+                            <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Online Now</span></div>
+                            <div class="metric-value" style="color:#22c55e">18</div>
+                            <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><span>Avg Score</span></div>
+                            <div class="metric-value" style="color:#f59e0b">92%</div>
+                            <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Tickets Today</span></div>
+                            <div class="metric-value">156</div>
+                            <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                        </div>
+                    </div>
+
+                    <div class="two-col-layout">
+                        <!-- Agent Workload -->
+                        <div class="card">
+                            <div class="card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                                Agent Workload <span class="demo-tag">Demo</span>
+                            </div>
+                            <div class="agent-list" id="agentList">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- AI Routing Rules -->
+                        <div class="card">
+                            <div class="card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                AI Routing Rules <span class="demo-tag">Illustrative</span>
+                            </div>
+                            <p class="card-desc">These rules illustrate how AI-powered ticket routing could work. They are not currently wired to real automation.</p>
+                            <div class="toggle-grid">
+                                <div class="toggle-item">
+                                    <div class="toggle-info">
+                                        <div class="toggle-label">Priority = Critical → Route to Senior Agents</div>
+                                        <div class="toggle-desc">Auto-escalate critical tickets to senior support team</div>
+                                    </div>
+                                    <label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                                </div>
+                                <div class="toggle-item">
+                                    <div class="toggle-info">
+                                        <div class="toggle-label">Category = Billing Issues → Route to Billing Dept</div>
+                                        <div class="toggle-desc">Automatically assign billing-related tickets</div>
+                                    </div>
+                                    <label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                                </div>
+                                <div class="toggle-item">
+                                    <div class="toggle-info">
+                                        <div class="toggle-label">Sentiment = Highly Negative → Flag for Review</div>
+                                        <div class="toggle-desc">Flag tickets with negative sentiment for immediate review</div>
+                                    </div>
+                                    <label class="toggle-switch"><input type="checkbox"><span class="toggle-slider"></span></label>
+                                </div>
+                                <div class="toggle-item">
+                                    <div class="toggle-info">
+                                        <div class="toggle-label">Agent workload > 80% → Auto-balance</div>
+                                        <div class="toggle-desc">Redistribute tickets when agent capacity exceeds threshold</div>
+                                    </div>
+                                    <label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- PAGE 7: ADMIN PANEL -->
+                <!-- ============================================================ -->
+                <section class="page-view" id="view-admin">
+                    <div class="sub-tabs">
+                        <button class="sub-tab active" onclick="switchAdminTab(this, 'admin-overview')">Overview</button>
+                        <button class="sub-tab" onclick="switchAdminTab(this, 'admin-roles')">Roles & Permissions</button>
+                        <button class="sub-tab" onclick="switchAdminTab(this, 'admin-audit')">Audit Log</button>
+                        <button class="sub-tab" onclick="switchAdminTab(this, 'admin-health')">System Health</button>
+                    </div>
+
+                    <div class="admin-tab-content active" id="admin-overview">
+                        <div class="metrics-grid four-col">
+                            <div class="metric-card">
+                                <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>Total Users</span></div>
+                                <div class="metric-value">48</div>
+                                <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Active Admins</span></div>
+                                <div class="metric-value" style="color:#6366f1">5</div>
+                                <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Security Alerts</span></div>
+                                <div class="metric-value" style="color:#ef4444">2</div>
+                                <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-header"><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>System Uptime</span></div>
+                                <div class="metric-value" style="color:#22c55e">99.9%</div>
+                                <div class="metric-caption"><span class="demo-tag">Demo</span></div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                Recent Activity <span class="demo-tag">Demo</span>
+                            </div>
+                            <div class="activity-feed" id="activityFeed">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-tab-content" id="admin-roles">
+                        <div class="card">
+                            <div class="card-title">Roles & Permissions <span class="demo-tag">Demo</span></div>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead><tr><th>Role</th><th>Users</th><th>Classify</th><th>Train</th><th>Upload</th><th>Admin</th></tr></thead>
+                                    <tbody>
+                                        <tr><td>Super Admin</td><td>2</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+                                        <tr><td>Admin</td><td>3</td><td>✅</td><td>✅</td><td>✅</td><td>—</td></tr>
+                                        <tr><td>Analyst</td><td>8</td><td>✅</td><td>✅</td><td>—</td><td>—</td></tr>
+                                        <tr><td>Agent</td><td>24</td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+                                        <tr><td>Viewer</td><td>11</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-tab-content" id="admin-audit">
+                        <div class="card">
+                            <div class="card-title">Audit Log <span class="demo-tag">Demo</span></div>
+                            <div class="activity-feed" id="auditLog">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-tab-content" id="admin-health">
+                        <div class="card">
+                            <div class="card-title">System Health <span class="demo-tag">Demo</span></div>
+                            <div class="health-grid">
+                                <div class="health-item">
+                                    <div class="health-label">API Server</div>
+                                    <div class="health-status online">● Operational</div>
+                                    <div class="health-bar"><div class="health-bar-fill" style="width:98%"></div></div>
+                                    <div class="health-meta">CPU: 23% · Mem: 1.2 GB</div>
+                                </div>
+                                <div class="health-item">
+                                    <div class="health-label">ML Model Service</div>
+                                    <div class="health-status online">● Operational</div>
+                                    <div class="health-bar"><div class="health-bar-fill" style="width:95%"></div></div>
+                                    <div class="health-meta">Inference avg: 45ms</div>
+                                </div>
+                                <div class="health-item">
+                                    <div class="health-label">Database</div>
+                                    <div class="health-status online">● Operational</div>
+                                    <div class="health-bar"><div class="health-bar-fill" style="width:99%"></div></div>
+                                    <div class="health-meta">Connections: 12/100</div>
+                                </div>
+                                <div class="health-item">
+                                    <div class="health-label">Redis Cache</div>
+                                    <div class="health-status online">● Operational</div>
+                                    <div class="health-bar"><div class="health-bar-fill" style="width:87%"></div></div>
+                                    <div class="health-meta">Hit rate: 94.2%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- PAGE 8: SETTINGS -->
+                <!-- ============================================================ -->
+                <section class="page-view" id="view-settings">
+                    <div class="settings-layout">
+                        <nav class="settings-nav">
+                            <button class="settings-nav-item active" onclick="switchSettingsTab(this, 'settings-general')">General</button>
+                            <button class="settings-nav-item" onclick="switchSettingsTab(this, 'settings-ai')">AI & Models</button>
+                            <button class="settings-nav-item" onclick="switchSettingsTab(this, 'settings-notifications')">Notifications</button>
+                            <button class="settings-nav-item" onclick="switchSettingsTab(this, 'settings-security')">Security</button>
+                            <button class="settings-nav-item" onclick="switchSettingsTab(this, 'settings-integrations')">Integrations</button>
+                            <button class="settings-nav-item" onclick="switchSettingsTab(this, 'settings-apikeys')">API Keys</button>
+                        </nav>
+                        <div class="settings-content">
+                            <!-- General -->
+                            <div class="settings-tab active" id="settings-general">
+                                <div class="card">
+                                    <div class="card-title">General Settings <span class="demo-tag">Demo</span></div>
+                                    <div class="form-grid two-col">
+                                        <div class="form-group">
+                                            <label>Organization Name</label>
+                                            <input type="text" class="form-input" value="SupportMind Inc." id="orgName">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Admin Email</label>
+                                            <input type="email" class="form-input" value="admin@supportmind.ai" id="adminEmail">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Timezone</label>
+                                            <select class="form-select" id="timezone">
+                                                <option>UTC</option>
+                                                <option selected>Asia/Kolkata (IST)</option>
+                                                <option>America/New_York (EST)</option>
+                                                <option>Europe/London (GMT)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Default Language</label>
+                                            <select class="form-select" id="defaultLang">
+                                                <option selected>English</option>
+                                                <option>Spanish</option>
+                                                <option>French</option>
+                                                <option>German</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary mt-md">Save Changes</button>
+                                </div>
+
+                                <div class="card">
+                                    <div class="card-title">SLA Configuration <span class="demo-tag">Demo</span></div>
+                                    <div class="table-container">
+                                        <table class="data-table">
+                                            <thead><tr><th>Priority</th><th>First Response</th><th>Resolution Target</th><th>Escalation</th></tr></thead>
+                                            <tbody>
+                                                <tr><td><span class="priority-badge high">Critical</span></td><td><input type="text" class="form-input compact" value="15 min"></td><td><input type="text" class="form-input compact" value="1 hour"></td><td><input type="text" class="form-input compact" value="30 min"></td></tr>
+                                                <tr><td><span class="priority-badge high">High</span></td><td><input type="text" class="form-input compact" value="30 min"></td><td><input type="text" class="form-input compact" value="4 hours"></td><td><input type="text" class="form-input compact" value="2 hours"></td></tr>
+                                                <tr><td><span class="priority-badge medium">Medium</span></td><td><input type="text" class="form-input compact" value="2 hours"></td><td><input type="text" class="form-input compact" value="24 hours"></td><td><input type="text" class="form-input compact" value="12 hours"></td></tr>
+                                                <tr><td><span class="priority-badge low">Low</span></td><td><input type="text" class="form-input compact" value="4 hours"></td><td><input type="text" class="form-input compact" value="72 hours"></td><td><input type="text" class="form-input compact" value="48 hours"></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button class="btn btn-primary mt-md">Update SLA</button>
+                                </div>
+                            </div>
+
+                            <!-- AI & Models -->
+                            <div class="settings-tab" id="settings-ai">
+                                <div class="card">
+                                    <div class="card-title">AI & Model Settings</div>
+                                    <div class="form-grid two-col">
+                                        <div class="form-group">
+                                            <label>Active Category Model</label>
+                                            <select class="form-select"><option selected>LinearSVC (CalibratedClassifierCV)</option><option>Logistic Regression</option><option>Random Forest</option></select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Active Priority Model</label>
+                                            <select class="form-select"><option selected>Logistic Regression</option><option>LinearSVC</option><option>Random Forest</option></select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Confidence Threshold</label>
+                                            <input type="number" class="form-input" value="0.5" min="0.1" max="0.99" step="0.05">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Auto-retrain Schedule</label>
+                                            <select class="form-select"><option>Disabled</option><option>Weekly</option><option>Monthly</option></select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notifications -->
+                            <div class="settings-tab" id="settings-notifications">
+                                <div class="card">
+                                    <div class="card-title">Notification Preferences <span class="demo-tag">Demo</span></div>
+                                    <div class="toggle-grid">
+                                        <div class="toggle-item"><div class="toggle-info"><div class="toggle-label">Email on critical tickets</div><div class="toggle-desc">Send email when a ticket is classified as critical priority</div></div><label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                                        <div class="toggle-item"><div class="toggle-info"><div class="toggle-label">SLA breach warnings</div><div class="toggle-desc">Alert when tickets approach SLA deadline</div></div><label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                                        <div class="toggle-item"><div class="toggle-info"><div class="toggle-label">Model accuracy drift alerts</div><div class="toggle-desc">Notify when model accuracy drops below threshold</div></div><label class="toggle-switch"><input type="checkbox"><span class="toggle-slider"></span></label></div>
+                                        <div class="toggle-item"><div class="toggle-info"><div class="toggle-label">Daily summary digest</div><div class="toggle-desc">Send daily recap of ticket volume and resolution stats</div></div><label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Security -->
+                            <div class="settings-tab" id="settings-security">
+                                <div class="card">
+                                    <div class="card-title">Security Settings <span class="demo-tag">Demo</span></div>
+                                    <div class="toggle-grid">
+                                        <div class="toggle-item"><div class="toggle-info"><div class="toggle-label">Two-factor authentication</div><div class="toggle-desc">Require 2FA for all admin accounts</div></div><label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                                        <div class="toggle-item"><div class="toggle-info"><div class="toggle-label">Session timeout</div><div class="toggle-desc">Auto-logout after 30 minutes of inactivity</div></div><label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                                        <div class="toggle-item"><div class="toggle-info"><div class="toggle-label">IP whitelist</div><div class="toggle-desc">Restrict API access to approved IP addresses</div></div><label class="toggle-switch"><input type="checkbox"><span class="toggle-slider"></span></label></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Integrations -->
+                            <div class="settings-tab" id="settings-integrations">
+                                <div class="card">
+                                    <div class="card-title">Integrations <span class="demo-tag">Demo</span></div>
+                                    <div class="integrations-grid">
+                                        <div class="integration-card"><div class="integration-icon">📧</div><div class="integration-info"><strong>Email (SMTP)</strong><p>Forward tickets from email inbox</p></div><span class="status-pill connected">Connected</span></div>
+                                        <div class="integration-card"><div class="integration-icon">💬</div><div class="integration-info"><strong>Slack</strong><p>Post ticket alerts to channels</p></div><span class="status-pill">Not Connected</span></div>
+                                        <div class="integration-card"><div class="integration-icon">🔧</div><div class="integration-info"><strong>Jira</strong><p>Sync tickets with Jira issues</p></div><span class="status-pill">Not Connected</span></div>
+                                        <div class="integration-card"><div class="integration-icon">📊</div><div class="integration-info"><strong>Webhooks</strong><p>Push events to external services</p></div><span class="status-pill connected">Connected</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- API Keys -->
+                            <div class="settings-tab" id="settings-apikeys">
+                                <div class="card">
+                                    <div class="card-title">API Keys <span class="demo-tag">Demo</span></div>
+                                    <p class="card-desc">API keys are not currently enforced — the API is open for this demo/portfolio project. In production, Bearer token authentication would be required.</p>
+                                    <div class="table-container">
+                                        <table class="data-table">
+                                            <thead><tr><th>Key Name</th><th>Key</th><th>Created</th><th>Last Used</th><th>Status</th></tr></thead>
+                                            <tbody>
+                                                <tr><td>Production Key</td><td><code>sk-prod-••••••••••••3f9a</code></td><td>Sep 20, 2026</td><td>2 min ago</td><td><span class="status-pill connected">Active</span></td></tr>
+                                                <tr><td>Dev Key</td><td><code>sk-dev-••••••••••••7b2c</code></td><td>Sep 18, 2026</td><td>1 hour ago</td><td><span class="status-pill connected">Active</span></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button class="btn btn-primary mt-md">Generate New Key</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================================================ -->
+                <!-- PAGE 9: API DOCS -->
+                <!-- ============================================================ -->
+                <section class="page-view" id="view-api-docs">
+                    <div class="card">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            Base URL
+                        </div>
+                        <div class="api-url-display">
+                            <code id="apiBaseUrl">http://localhost:8000</code>
+                            <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('apiBaseUrl').textContent)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Copy
+                            </button>
+                            <span class="api-latency" id="apiLatency">Avg latency: measuring...</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            Authentication
+                        </div>
+                        <p class="card-desc">This API is currently <strong>open</strong> (no authentication required) as this is a demo/portfolio project. In production, you would use Bearer token authentication:</p>
+                        <div class="code-block">
+                            <div class="code-header">HTTP Header</div>
+                            <pre><code>Authorization: Bearer YOUR_API_KEY</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            Endpoints
+                        </div>
+                        <div class="endpoint-list">
+                            <div class="endpoint-item">
+                                <span class="method post">POST</span>
+                                <code>/predict</code>
+                                <span class="endpoint-desc">Classify a single support ticket</span>
+                            </div>
+                            <div class="endpoint-item">
+                                <span class="method post">POST</span>
+                                <code>/predict/batch</code>
+                                <span class="endpoint-desc">Classify multiple tickets (max 1,000)</span>
+                            </div>
+                            <div class="endpoint-item">
+                                <span class="method post">POST</span>
+                                <code>/predict/upload</code>
+                                <span class="endpoint-desc">Classify tickets from CSV upload</span>
+                            </div>
+                            <div class="endpoint-item">
+                                <span class="method get">GET</span>
+                                <code>/health</code>
+                                <span class="endpoint-desc">Health check & model status</span>
+                            </div>
+                            <div class="endpoint-item">
+                                <span class="method get">GET</span>
+                                <code>/model-info</code>
+                                <span class="endpoint-desc">Model version, metrics & evaluation</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                            Quick Start
+                        </div>
+                        <div class="code-tabs">
+                            <button class="code-tab active" onclick="switchCodeTab(this, 'code-js')">JavaScript</button>
+                            <button class="code-tab" onclick="switchCodeTab(this, 'code-python')">Python</button>
+                        </div>
+                        <div class="code-tab-content active" id="code-js">
+                            <div class="code-block">
+                                <div class="code-header">
+                                    <span>JavaScript (fetch)</span>
+                                    <button class="btn btn-ghost btn-sm" onclick="copyCodeBlock('code-js')">Copy</button>
+                                </div>
+                                <pre><code id="codeJsContent">const response = await fetch('http://localhost:8000/predict', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    text: 'My laptop screen is broken and I need a replacement'
+  })
+});
+
+const result = await response.json();
+console.log(result.category);    // e.g. "Hardware"
+console.log(result.priority);    // e.g. "Medium"
+console.log(result.category_confidence);  // e.g. 0.8723</code></pre>
+                            </div>
+                        </div>
+                        <div class="code-tab-content" id="code-python">
+                            <div class="code-block">
+                                <div class="code-header">
+                                    <span>Python (requests)</span>
+                                    <button class="btn btn-ghost btn-sm" onclick="copyCodeBlock('code-python')">Copy</button>
+                                </div>
+                                <pre><code id="codePythonContent">import requests
+
+response = requests.post(
+    'http://localhost:8000/predict',
+    json={'text': 'My laptop screen is broken and I need a replacement'}
+)
+
+result = response.json()
+print(f"Category: {result['category']}")       # e.g. "Hardware"
+print(f"Priority: {result['priority']}")       # e.g. "Medium"
+print(f"Confidence: {result['category_confidence']}")  # e.g. 0.8723</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
     </div>
 
     <script src="app.js"></script>

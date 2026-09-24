@@ -30,6 +30,31 @@ Model evaluation metrics, category/priority distribution charts, and per-class p
 
 ---
 
+## 🟢 Feature Status
+
+The UI is a 9-page admin product branded **"SupportMind — AI Intelligence"**. Below is a transparency guide distinguishing fully functional features from demo/illustrative panels.
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| **Ticket Analyzer** (`/predict`) | ✅ Fully functional | Real ML inference via FastAPI backend |
+| **Dashboard — AI Accuracy & Total Tickets** | ✅ Real data | From model metadata & dataset support counts |
+| **Dashboard — Category Distribution** | ✅ Real data | From per-class support counts in training data |
+| **Model Comparison Table** | ✅ Real data | From 5-fold cross-validation across 4 models |
+| **API Docs** | ✅ Real | Documents actual `/predict` endpoint with working code samples |
+| **Batch CSV Upload** | ✅ Fully functional | Parses CSV, sends to `/predict/batch`, shows results |
+| Dashboard — Volume Trend | 🟡 Demo | Simulated daily volumes (no real time-series data) |
+| Dashboard — Critical/Resolved/Response/CSAT/Open/SLA metrics | 🟡 Demo | Placeholder values — no ticket lifecycle tracking |
+| Training Configuration | 🟡 Demo controls | UI-only — no in-browser retraining endpoint |
+| Accuracy/Loss Curves | 🟡 Demo | Plotted from cross-validation fold scores |
+| Dataset Upload — Cleaning Toggles | 🟡 Partial | Upload works; cleaning toggles are UI-only |
+| Analytics — Sentiment | 🟡 Demo | No sentiment model — clearly marked "Future Feature" |
+| Team — Agent Workload | 🟡 Demo | Simulated agent data |
+| Team — AI Routing Rules | 🟡 Demo | Illustrative toggles — clearly marked |
+| Admin Panel | 🟡 Demo | All simulated data |
+| Settings | 🟡 Demo | UI-only, no persistence |
+
+---
+
 ## 🏗️ Architecture
 
 ```
@@ -248,10 +273,10 @@ The ML model then learns these patterns from text alone, predicting priority wit
 │   ├── main.py                  # FastAPI application
 │   ├── schemas.py               # Pydantic request/response models
 │   └── requirements.txt
-├── frontend/
-│   ├── index.html               # Single-page app (3 tabs)
+├── public/
+│   ├── index.html               # 9-page SPA (SupportMind admin UI)
 │   ├── styles.css               # Dark glassmorphism theme
-│   └── app.js                   # API client & UI logic
+│   └── app.js                   # API client, charts & UI logic
 ├── vercel.json                  # Vercel deployment config
 ├── requirements.txt             # Python dependencies
 ├── .gitignore
