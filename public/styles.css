@@ -2066,3 +2066,129 @@ body::before {
         flex-wrap: nowrap;
     }
 }
+
+/* ==========================================================================
+   Demo Tags & Training Progress
+   ========================================================================== */
+
+.demo-tag {
+    display: inline-block;
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 8px;
+    vertical-align: middle;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.training-progress {
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: var(--radius-lg);
+    animation: fadeInProgress 0.3s ease;
+}
+
+@keyframes fadeInProgress {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+}
+
+.progress-step {
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.progress-percent {
+    font-size: var(--font-sm);
+    font-weight: 700;
+    color: var(--accent-primary);
+    font-family: var(--font-mono);
+}
+
+.progress-bar-track {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--accent-gradient);
+    border-radius: 4px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.progress-elapsed {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: var(--space-xs);
+    text-align: right;
+}
+
+.training-progress.completed {
+    background: rgba(34, 197, 94, 0.06);
+    border-color: rgba(34, 197, 94, 0.2);
+}
+
+.training-progress.completed .progress-bar-fill {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.training-progress.completed .progress-bar-fill::after {
+    animation: none;
+}
+
+.training-progress.completed .progress-percent {
+    color: #22c55e;
+}
+
+.training-progress.failed {
+    background: rgba(239, 68, 68, 0.06);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.training-progress.failed .progress-bar-fill {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.training-progress.failed .progress-bar-fill::after {
+    animation: none;
+}
+
+.training-progress.failed .progress-percent {
+    color: #ef4444;
+}

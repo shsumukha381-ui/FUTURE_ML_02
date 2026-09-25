@@ -16,6 +16,10 @@ import io
 import sys
 import csv
 import logging
+import uuid
+import time
+import zipfile
+import threading
 from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -24,6 +28,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 # Ensure the project root is on sys.path so we can import src.*
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -37,6 +42,10 @@ from backend.schemas import (
     BatchPredictionResult,
     HealthResponse,
     ModelInfoResponse,
+    TrainRequest,
+    TrainStatusResponse,
+    TrainModelResult,
+    TrainFoldResult,
 )
 from src.preprocessing import clean_text
 from src.train import load_artifacts
@@ -330,5 +339,352 @@ async def predict_upload(file: UploadFile = File(...)):
     return BatchPredictionResult(
         predictions=predictions,
         total=len(predictions),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Training Jobs — background retraining with progress tracking
+# ---------------------------------------------------------------------------
+_training_jobs = {}  # job_id -> dict with status, progress, results
+_training_lock = threading.Lock()
+
+
+def _run_training_job(job_id: str, config: TrainRequest):
+    """
+    Execute the full training pipeline in a background thread.
+
+    Updates _training_jobs[job_id] with progress as each step completes,
+    so the frontend can poll GET /train/status/{job_id} for live updates.
+    """
+    job = _training_jobs[job_id]
+    start_time = time.time()
+
+    try:
+        # ---------------------------------------------------------------
+        # Step 1: Load and prepare data
+        # ---------------------------------------------------------------
+        job["status"] = "running"
+        job["current_step"] = "Loading and preparing dataset..."
+        job["progress"] = 0.05
+
+        from src.preprocessing import prepare_dataset
+        from src.config import TFIDF_PARAMS, BOW_PARAMS
+
+        # Override config from request
+        import src.config as cfg
+        cfg.CROSS_VALIDATION_FOLDS = config.cv_folds
+        cfg.TEST_SIZE = config.test_split
+        cfg.TFIDF_PARAMS["max_features"] = config.max_features
+        cfg.BOW_PARAMS["max_features"] = config.max_features
+
+        X_train, X_test, y_cat_train, y_cat_test, y_pri_train, y_pri_test, df = prepare_dataset()
+        job["progress"] = 0.15
+        job["current_step"] = "Extracting features..."
+
+        # ---------------------------------------------------------------
+        # Step 2: Feature extraction
+        # ---------------------------------------------------------------
+        from src.features import build_tfidf_vectorizer, build_bow_vectorizer, transform_features
+
+        if config.feature_extraction == "tfidf":
+            vectorizer, X_train_feat = build_tfidf_vectorizer(X_train)
+        else:
+            vectorizer, X_train_feat = build_bow_vectorizer(X_train)
+
+        X_test_feat = transform_features(X_test, vectorizer)
+        job["progress"] = 0.25
+        job["current_step"] = "Training classifiers..."
+
+        # ---------------------------------------------------------------
+        # Step 3: Train classifiers with per-fold reporting
+        # ---------------------------------------------------------------
+        from sklearn.model_selection import StratifiedKFold, cross_val_score
+        from src.train import _get_classifiers, save_artifacts
+
+        cv = StratifiedKFold(n_splits=config.cv_folds, shuffle=True, random_state=42)
+
+        # Determine which classifiers to run
+        all_classifiers = _get_classifiers()
+        if config.algorithm != "all":
+            all_classifiers = [(n, c) for n, c in all_classifiers if n == config.algorithm]
+
+        total_models = len(all_classifiers) * 2  # category + priority
+        models_done = 0
+
+        # --- Category classifiers ---
+        cat_cv_results = {}
+        cat_best_score = -1.0
+        cat_best_model = None
+        cat_best_name = ""
+
+        for name, clf in all_classifiers:
+            job["current_step"] = f"Training {name} (Category)..."
+            try:
+                f1_scores = cross_val_score(clf, X_train_feat, y_cat_train, cv=cv, scoring="f1_macro", n_jobs=-1)
+                acc_scores = cross_val_score(clf, X_train_feat, y_cat_train, cv=cv, scoring="accuracy", n_jobs=-1)
+
+                fold_results = []
+                for i in range(len(f1_scores)):
+                    fold_results.append(TrainFoldResult(
+                        fold=i + 1,
+                        accuracy=round(float(acc_scores[i]), 4),
+                        f1=round(float(f1_scores[i]), 4),
+                        loss=round(1.0 - float(acc_scores[i]), 4),
+                    ))
+
+                result = {
+                    "mean_f1": float(np.mean(f1_scores)),
+                    "std_f1": float(np.std(f1_scores)),
+                    "mean_accuracy": float(np.mean(acc_scores)),
+                    "std_accuracy": float(np.std(acc_scores)),
+                }
+                cat_cv_results[name] = result
+
+                model_result = TrainModelResult(
+                    name=name,
+                    mean_accuracy=round(result["mean_accuracy"], 4),
+                    std_accuracy=round(result["std_accuracy"], 4),
+                    mean_f1=round(result["mean_f1"], 4),
+                    std_f1=round(result["std_f1"], 4),
+                    fold_results=fold_results,
+                )
+                job["models_completed"].append(model_result)
+
+                if result["mean_f1"] > cat_best_score:
+                    cat_best_score = result["mean_f1"]
+                    cat_best_model = clf
+                    cat_best_name = name
+
+            except Exception as e:
+                logger.error("Training %s (Category) failed: %s", name, e)
+                cat_cv_results[name] = {"error": str(e)}
+
+            models_done += 1
+            job["progress"] = 0.25 + (models_done / total_models) * 0.5
+
+        # Refit best category model on full training set
+        if cat_best_model:
+            job["current_step"] = f"Refitting {cat_best_name} on full training set..."
+            cat_best_model.fit(X_train_feat, y_cat_train)
+
+        # --- Priority classifiers ---
+        pri_cv_results = {}
+        pri_best_score = -1.0
+        pri_best_model = None
+        pri_best_name = ""
+
+        for name, clf in _get_classifiers():
+            if config.algorithm != "all" and name != config.algorithm:
+                continue
+            job["current_step"] = f"Training {name} (Priority)..."
+            try:
+                # Need fresh classifier instances for priority
+                from src.train import _get_classifiers as get_clfs
+                fresh_classifiers = {n: c for n, c in get_clfs()}
+                clf_pri = fresh_classifiers[name]
+
+                f1_scores = cross_val_score(clf_pri, X_train_feat, y_pri_train, cv=cv, scoring="f1_macro", n_jobs=-1)
+                acc_scores = cross_val_score(clf_pri, X_train_feat, y_pri_train, cv=cv, scoring="accuracy", n_jobs=-1)
+
+                result = {
+                    "mean_f1": float(np.mean(f1_scores)),
+                    "std_f1": float(np.std(f1_scores)),
+                    "mean_accuracy": float(np.mean(acc_scores)),
+                    "std_accuracy": float(np.std(acc_scores)),
+                }
+                pri_cv_results[name] = result
+
+                if result["mean_f1"] > pri_best_score:
+                    pri_best_score = result["mean_f1"]
+                    pri_best_model = clf_pri
+                    pri_best_name = name
+
+            except Exception as e:
+                logger.error("Training %s (Priority) failed: %s", name, e)
+                pri_cv_results[name] = {"error": str(e)}
+
+            models_done += 1
+            job["progress"] = 0.25 + (models_done / total_models) * 0.5
+
+        # Refit best priority model
+        if pri_best_model:
+            job["current_step"] = f"Refitting {pri_best_name} on full training set..."
+            pri_best_model.fit(X_train_feat, y_pri_train)
+
+        # ---------------------------------------------------------------
+        # Step 4: Evaluate on test set
+        # ---------------------------------------------------------------
+        job["progress"] = 0.80
+        job["current_step"] = "Evaluating on test set..."
+
+        from src.evaluate import evaluate_model
+        from src.config import CATEGORY_LABELS, PRIORITY_LABELS
+
+        cat_metrics = evaluate_model(
+            cat_best_model, X_test_feat, y_cat_test, CATEGORY_LABELS, "Category"
+        ) if cat_best_model else {}
+
+        pri_metrics = evaluate_model(
+            pri_best_model, X_test_feat, y_pri_test, PRIORITY_LABELS, "Priority"
+        ) if pri_best_model else {}
+
+        job["category_results"] = {
+            "cv": cat_cv_results,
+            "evaluation": cat_metrics,
+            "best_model": cat_best_name,
+        }
+        job["priority_results"] = {
+            "cv": pri_cv_results,
+            "evaluation": pri_metrics,
+            "best_model": pri_best_name,
+        }
+
+        # ---------------------------------------------------------------
+        # Step 5: Save artifacts
+        # ---------------------------------------------------------------
+        job["progress"] = 0.90
+        job["current_step"] = "Saving model artifacts..."
+
+        if cat_best_model and pri_best_model:
+            save_artifacts(
+                vectorizer=vectorizer,
+                category_model=cat_best_model,
+                priority_model=pri_best_model,
+                category_cv_results=cat_cv_results,
+                priority_cv_results=pri_cv_results,
+                category_eval=cat_metrics,
+                priority_eval=pri_metrics,
+            )
+
+            # Reload models into the running API
+            _model_state["vectorizer"] = vectorizer
+            _model_state["category_model"] = cat_best_model
+            _model_state["priority_model"] = pri_best_model
+
+            # Reload metadata
+            from src.config import MODELS_DIR
+            import json
+            with open(MODELS_DIR / "metadata.json") as f:
+                _model_state["metadata"] = json.load(f)
+            _model_state["loaded"] = True
+
+        # Mark best model in completed list
+        for m in job["models_completed"]:
+            if m.name == cat_best_name:
+                m.is_best = True
+
+        job["progress"] = 1.0
+        job["status"] = "completed"
+        job["current_step"] = "Training complete!"
+        job["elapsed_seconds"] = round(time.time() - start_time, 1)
+
+        logger.info(
+            "Training job %s completed in %.1fs — Best category: %s, Best priority: %s",
+            job_id, job["elapsed_seconds"], cat_best_name, pri_best_name,
+        )
+
+    except Exception as e:
+        logger.error("Training job %s failed: %s", job_id, e, exc_info=True)
+        job["status"] = "failed"
+        job["error"] = str(e)
+        job["elapsed_seconds"] = round(time.time() - start_time, 1)
+
+
+@app.post("/train", tags=["Training"])
+async def start_training(config: TrainRequest):
+    """
+    Start a model training job in the background.
+
+    Returns a job_id that can be polled via GET /train/status/{job_id}.
+    Only one training job can run at a time.
+    """
+    # Check if a training job is already running
+    with _training_lock:
+        for jid, job in _training_jobs.items():
+            if job["status"] == "running":
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Training job {jid} is already running. Wait for it to complete.",
+                )
+
+    job_id = str(uuid.uuid4())[:8]
+    _training_jobs[job_id] = {
+        "status": "queued",
+        "progress": 0.0,
+        "current_step": "Queued...",
+        "models_completed": [],
+        "category_results": None,
+        "priority_results": None,
+        "error": None,
+        "elapsed_seconds": None,
+        "config": config.model_dump(),
+    }
+
+    logger.info("Starting training job %s with config: %s", job_id, config.model_dump())
+
+    thread = threading.Thread(
+        target=_run_training_job,
+        args=(job_id, config),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/train/status/{job_id}", response_model=TrainStatusResponse, tags=["Training"])
+async def train_status(job_id: str):
+    """Poll the status of a training job."""
+    if job_id not in _training_jobs:
+        raise HTTPException(status_code=404, detail=f"Training job {job_id} not found.")
+
+    job = _training_jobs[job_id]
+    return TrainStatusResponse(
+        job_id=job_id,
+        status=job["status"],
+        progress=job["progress"],
+        current_step=job["current_step"],
+        models_completed=job["models_completed"],
+        category_results=job["category_results"],
+        priority_results=job["priority_results"],
+        error=job["error"],
+        elapsed_seconds=job["elapsed_seconds"],
+    )
+
+
+@app.get("/train/export", tags=["Training"])
+async def export_model():
+    """
+    Download the current trained model artifacts as a ZIP file.
+
+    Includes: vectorizer.joblib, category_model.joblib, priority_model.joblib, metadata.json
+    """
+    from src.config import MODELS_DIR
+
+    required_files = [
+        MODELS_DIR / "vectorizer.joblib",
+        MODELS_DIR / "category_model.joblib",
+        MODELS_DIR / "priority_model.joblib",
+        MODELS_DIR / "metadata.json",
+    ]
+
+    for f in required_files:
+        if not f.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Model artifact {f.name} not found. Train a model first.",
+            )
+
+    # Create ZIP in memory
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in required_files:
+            zf.write(f, f.name)
+
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=supportmind_model.zip"},
     )
 

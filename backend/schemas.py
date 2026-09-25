@@ -88,3 +88,74 @@ class ModelInfoResponse(BaseModel):
     category_metrics: Optional[Dict] = None
     priority_metrics: Optional[Dict] = None
     cross_validation: Optional[Dict] = None
+
+
+# ---------------------------------------------------------------------------
+# Training schemas
+# ---------------------------------------------------------------------------
+
+class TrainRequest(BaseModel):
+    """Training job request with configurable parameters."""
+    algorithm: str = Field(
+        default="LinearSVC",
+        description="Algorithm to train: LinearSVC, LogisticRegression, RandomForest, MultinomialNB, or all.",
+        examples=["LinearSVC", "all"],
+    )
+    feature_extraction: str = Field(
+        default="tfidf",
+        description="Feature extraction method: 'tfidf' or 'bow'.",
+    )
+    dataset: str = Field(
+        default="all_tickets",
+        description="Dataset identifier.",
+    )
+    cv_folds: int = Field(default=5, ge=2, le=10, description="Number of cross-validation folds.")
+    test_split: float = Field(default=0.2, ge=0.1, le=0.5, description="Test set ratio.")
+    max_features: int = Field(default=10000, ge=1000, le=50000, description="Max features for vectorizer.")
+
+    @field_validator("algorithm")
+    @classmethod
+    def validate_algorithm(cls, v: str) -> str:
+        allowed = {"LinearSVC", "LogisticRegression", "RandomForest", "MultinomialNB", "all"}
+        if v not in allowed:
+            raise ValueError(f"Algorithm must be one of {allowed}")
+        return v
+
+    @field_validator("feature_extraction")
+    @classmethod
+    def validate_feature(cls, v: str) -> str:
+        if v not in {"tfidf", "bow"}:
+            raise ValueError("feature_extraction must be 'tfidf' or 'bow'")
+        return v
+
+
+class TrainFoldResult(BaseModel):
+    """Result for a single cross-validation fold."""
+    fold: int
+    accuracy: float
+    f1: float
+    loss: float
+
+
+class TrainModelResult(BaseModel):
+    """Cross-validation results for a single model."""
+    name: str
+    mean_accuracy: float
+    std_accuracy: float
+    mean_f1: float
+    std_f1: float
+    fold_results: List[TrainFoldResult] = []
+    is_best: bool = False
+
+
+class TrainStatusResponse(BaseModel):
+    """Training job status response."""
+    job_id: str
+    status: str = Field(description="One of: queued, running, completed, failed")
+    progress: float = Field(default=0.0, ge=0.0, le=1.0, description="Progress 0.0-1.0")
+    current_step: str = Field(default="", description="Human-readable current step")
+    models_completed: List[TrainModelResult] = []
+    category_results: Optional[Dict] = None
+    priority_results: Optional[Dict] = None
+    error: Optional[str] = None
+    elapsed_seconds: Optional[float] = None

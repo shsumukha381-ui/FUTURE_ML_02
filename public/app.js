@@ -248,6 +248,45 @@ function loadSample(index) {
 // Health Check
 // ===========================================================================
 async function checkHealth() {
+    const topDot = document.getElementById('statusDot');
+    const topText = document.getElementById('statusText');
+    const sideDot = document.getElementById('sidebarDot');
+    const sideText = document.getElementById('sidebarStatusText');
+
+    // Demo tags to show/hide based on connectivity
+    const demoTagIds = ['trainConfigTag', 'accCurveTag', 'lossCurveTag'];
+
+    function setOnline(modelLoaded) {
+        demoMode = !modelLoaded;
+        const label = modelLoaded ? 'AI Active' : 'Models Not Loaded';
+        const sideLabel = modelLoaded ? 'AI Engine \u2014 Online' : 'AI Engine \u2014 Degraded';
+
+        if (topDot) { topDot.classList.remove('error'); }
+        if (topText) { topText.textContent = label; }
+        if (sideDot) { sideDot.classList.remove('error'); sideDot.classList.add('online'); }
+        if (sideText) { sideText.textContent = sideLabel; }
+
+        // Hide demo tags when backend is connected
+        demoTagIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    }
+
+    function setOffline() {
+        demoMode = true;
+        if (topDot) { topDot.classList.add('error'); }
+        if (topText) { topText.textContent = 'Offline (Demo)'; }
+        if (sideDot) { sideDot.classList.add('error'); sideDot.classList.remove('online'); }
+        if (sideText) { sideText.textContent = 'AI Engine \u2014 Offline'; }
+
+        // Show demo tags when backend is offline
+        demoTagIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
+    }
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -255,23 +294,9 @@ async function checkHealth() {
         clearTimeout(timeoutId);
 
         const data = await res.json();
-        const dot = document.getElementById('statusDot');
-        const text = document.getElementById('statusText');
-        if (data.model_loaded) {
-            demoMode = false;
-            dot.classList.remove('error');
-            text.textContent = 'AI Active';
-        } else {
-            demoMode = true;
-            dot.classList.add('error');
-            text.textContent = 'Demo Mode';
-        }
+        setOnline(data.model_loaded);
     } catch (e) {
-        demoMode = true;
-        const dot = document.getElementById('statusDot');
-        const text = document.getElementById('statusText');
-        dot.classList.add('error');
-        text.textContent = 'Offline (Demo)';
+        setOffline();
     }
 }
 
@@ -747,28 +772,284 @@ function populateModelComparison() {
     if (bestModelScore) bestModelScore.textContent = (catData[BEST_MODELS.category.name].mean_f1 * 100).toFixed(1) + '%';
 }
 
-// DEMO: Simulate training (no real retraining — UI-only animation)
-function simulateTraining() {
-    const btn = document.getElementById('startTrainingBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="loading-spinner"></span> Training...';
+// ===========================================================================
+// Real Training — calls POST /train and polls GET /train/status
+// ===========================================================================
+let _trainingJobId = null;
+let _trainingPollTimer = null;
 
-    setTimeout(() => {
+async function startTraining() {
+    const btn = document.getElementById('startTrainingBtn');
+
+    // If in demo mode (backend offline), run a visual demo simulation
+    if (demoMode) {
+        runDemoTraining();
+        return;
+    }
+
+    // Collect config from form controls
+    const config = {
+        algorithm: document.getElementById('trainAlgorithm').value,
+        feature_extraction: document.getElementById('trainFeatures').value,
+        dataset: document.getElementById('trainDataset').value,
+        cv_folds: parseInt(document.getElementById('trainFolds').value) || 5,
+        test_split: parseFloat(document.getElementById('trainTestSplit').value) || 0.2,
+        max_features: parseInt(document.getElementById('trainMaxFeatures').value) || 10000,
+    };
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Starting...';
+
+    // Show progress UI
+    const progressEl = document.getElementById('trainingProgress');
+    progressEl.style.display = 'block';
+    progressEl.className = 'training-progress';
+    document.getElementById('trainingStep').textContent = 'Starting training job...';
+    document.getElementById('trainingPercent').textContent = '0%';
+    document.getElementById('trainingProgressBar').style.width = '0%';
+    document.getElementById('trainingElapsed').textContent = '';
+
+    try {
+        const res = await fetch(`${API_BASE}/train`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+            throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        _trainingJobId = data.job_id;
+
+        btn.innerHTML = '<span class="loading-spinner"></span> Training...';
+
+        // Start polling for status
+        _trainingPollTimer = setInterval(() => pollTrainingStatus(), 2000);
+
+    } catch (e) {
         btn.disabled = false;
         btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Training`;
-        // Could update curves here
-    }, 3000);
+        progressEl.style.display = 'none';
+        showError('Failed to start training: ' + e.message);
+    }
 }
 
-// DEMO: Training curves (empty/simulated)
+async function pollTrainingStatus() {
+    if (!_trainingJobId) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/train/status/${_trainingJobId}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        // Update progress UI
+        const pct = Math.round(data.progress * 100);
+        document.getElementById('trainingStep').textContent = data.current_step;
+        document.getElementById('trainingPercent').textContent = pct + '%';
+        document.getElementById('trainingProgressBar').style.width = pct + '%';
+        if (data.elapsed_seconds) {
+            document.getElementById('trainingElapsed').textContent = `Elapsed: ${data.elapsed_seconds}s`;
+        }
+
+        // Update curves with real fold data if available
+        if (data.models_completed && data.models_completed.length > 0) {
+            updateTrainingCurvesFromResults(data.models_completed);
+        }
+
+        // Check if training is done
+        if (data.status === 'completed') {
+            clearInterval(_trainingPollTimer);
+            _trainingPollTimer = null;
+
+            const btn = document.getElementById('startTrainingBtn');
+            btn.disabled = false;
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Training`;
+
+            const progressEl = document.getElementById('trainingProgress');
+            progressEl.className = 'training-progress completed';
+            document.getElementById('trainingStep').textContent = `Training complete in ${data.elapsed_seconds}s!`;
+
+            // Update model comparison table with new results
+            if (data.category_results && data.category_results.cv) {
+                Object.entries(data.category_results.cv).forEach(([name, r]) => {
+                    if (r.mean_f1) REAL_CV_DATA.category[name] = r;
+                });
+            }
+            if (data.priority_results && data.priority_results.cv) {
+                Object.entries(data.priority_results.cv).forEach(([name, r]) => {
+                    if (r.mean_f1) REAL_CV_DATA.priority[name] = r;
+                });
+            }
+            if (data.category_results && data.category_results.best_model) {
+                BEST_MODELS.category.name = data.category_results.best_model;
+            }
+            if (data.priority_results && data.priority_results.best_model) {
+                BEST_MODELS.priority.name = data.priority_results.best_model;
+            }
+            populateModelComparison();
+
+            // Refresh health status and model info
+            checkHealth();
+            loadModelInfo();
+
+        } else if (data.status === 'failed') {
+            clearInterval(_trainingPollTimer);
+            _trainingPollTimer = null;
+
+            const btn = document.getElementById('startTrainingBtn');
+            btn.disabled = false;
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Training`;
+
+            const progressEl = document.getElementById('trainingProgress');
+            progressEl.className = 'training-progress failed';
+            document.getElementById('trainingStep').textContent = 'Training failed: ' + (data.error || 'Unknown error');
+
+            showError('Training failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (e) {
+        // Network error during poll — don't stop polling, just log
+        console.warn('Failed to poll training status:', e);
+    }
+}
+
+function updateTrainingCurvesFromResults(modelsCompleted) {
+    // Get fold results from the first completed model (or best)
+    const bestModel = modelsCompleted.find(m => m.is_best) || modelsCompleted[modelsCompleted.length - 1];
+    if (!bestModel || !bestModel.fold_results || bestModel.fold_results.length === 0) return;
+
+    const folds = bestModel.fold_results;
+    const labels = folds.map(f => `Fold ${f.fold}`);
+    const accData = folds.map(f => f.accuracy);
+    const lossData = folds.map(f => f.loss);
+
+    // Update accuracy chart
+    if (window.accCurveInstance) {
+        window.accCurveInstance.data.labels = labels;
+        window.accCurveInstance.data.datasets[0].data = accData;
+        // Auto-adjust y scale
+        const minAcc = Math.min(...accData);
+        const maxAcc = Math.max(...accData);
+        window.accCurveInstance.options.scales.y.min = Math.max(0, Math.floor(minAcc * 100 - 2) / 100);
+        window.accCurveInstance.options.scales.y.max = Math.min(1, Math.ceil(maxAcc * 100 + 2) / 100);
+        window.accCurveInstance.update();
+    }
+
+    // Update loss chart
+    if (window.lossCurveInstance) {
+        window.lossCurveInstance.data.labels = labels;
+        window.lossCurveInstance.data.datasets[0].data = lossData;
+        const minLoss = Math.min(...lossData);
+        const maxLoss = Math.max(...lossData);
+        window.lossCurveInstance.options.scales.y.min = Math.max(0, Math.floor(minLoss * 100 - 2) / 100);
+        window.lossCurveInstance.options.scales.y.max = Math.ceil(maxLoss * 100 + 2) / 100;
+        window.lossCurveInstance.update();
+    }
+}
+
+// Demo training (fallback when backend is offline) — animated visual simulation
+function runDemoTraining() {
+    const btn = document.getElementById('startTrainingBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Training (Demo)...';
+
+    const progressEl = document.getElementById('trainingProgress');
+    progressEl.style.display = 'block';
+    progressEl.className = 'training-progress';
+
+    const steps = [
+        { step: 'Loading dataset...', pct: 10, delay: 400 },
+        { step: 'Extracting TF-IDF features...', pct: 25, delay: 600 },
+        { step: 'Training LinearSVC (Category)...', pct: 40, delay: 800 },
+        { step: 'Training LinearSVC (Priority)...', pct: 55, delay: 800 },
+        { step: 'Cross-validating (Fold 1/5)...', pct: 65, delay: 500 },
+        { step: 'Cross-validating (Fold 3/5)...', pct: 75, delay: 500 },
+        { step: 'Cross-validating (Fold 5/5)...', pct: 85, delay: 500 },
+        { step: 'Evaluating on test set...', pct: 92, delay: 600 },
+        { step: 'Demo training complete!', pct: 100, delay: 0 },
+    ];
+
+    let i = 0;
+    function nextStep() {
+        if (i >= steps.length) {
+            progressEl.className = 'training-progress completed';
+            btn.disabled = false;
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Training`;
+
+            // Animate demo curves updating
+            const demoAccData = [0.845, 0.851, 0.848, 0.855, 0.853];
+            const demoLossData = [0.155, 0.149, 0.152, 0.145, 0.147];
+            if (window.accCurveInstance) {
+                window.accCurveInstance.data.datasets[0].data = demoAccData;
+                window.accCurveInstance.update();
+            }
+            if (window.lossCurveInstance) {
+                window.lossCurveInstance.data.datasets[0].data = demoLossData;
+                window.lossCurveInstance.update();
+            }
+            return;
+        }
+        const s = steps[i];
+        document.getElementById('trainingStep').textContent = s.step;
+        document.getElementById('trainingPercent').textContent = s.pct + '%';
+        document.getElementById('trainingProgressBar').style.width = s.pct + '%';
+        i++;
+        if (s.delay > 0) {
+            setTimeout(nextStep, s.delay);
+        } else {
+            nextStep();
+        }
+    }
+    nextStep();
+}
+
+// Export Model — downloads ZIP from backend or shows error in demo mode
+async function exportModel() {
+    if (demoMode) {
+        showError('Export is not available in demo mode. Connect to the backend API to download model artifacts.');
+        return;
+    }
+
+    const btn = document.getElementById('exportModelBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Exporting...';
+
+    try {
+        const res = await fetch(`${API_BASE}/train/export`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+            throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'supportmind_model.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        showError('Failed to export model: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export Model`;
+    }
+}
+
+// Training curves — initialized with default data, updated with real results
 function initTrainingCurves() {
     const accCtx = document.getElementById('accuracyCurveChart');
     const lossCtx = document.getElementById('lossCurveChart');
     if (!accCtx || !lossCtx) return;
+    if (window.accCurveInstance || window.lossCurveInstance) return;
 
     const labels = Array.from({ length: 5 }, (_, i) => `Fold ${i + 1}`);
 
-    new Chart(accCtx, {
+    window.accCurveInstance = new Chart(accCtx, {
         type: 'line',
         data: {
             labels,
@@ -779,7 +1060,9 @@ function initTrainingCurves() {
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                 fill: true,
                 tension: 0.3,
-                borderWidth: 2
+                borderWidth: 2,
+                pointRadius: 4,
+                pointBackgroundColor: '#6366f1',
             }]
         },
         options: {
@@ -793,18 +1076,20 @@ function initTrainingCurves() {
         }
     });
 
-    new Chart(lossCtx, {
+    window.lossCurveInstance = new Chart(lossCtx, {
         type: 'line',
         data: {
             labels,
             datasets: [{
                 label: 'Loss',
-                data: [0.42, 0.38, 0.35, 0.33, 0.31],
+                data: [0.155, 0.149, 0.152, 0.145, 0.147],
                 borderColor: '#ef4444',
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                 fill: true,
                 tension: 0.3,
-                borderWidth: 2
+                borderWidth: 2,
+                pointRadius: 4,
+                pointBackgroundColor: '#ef4444',
             }]
         },
         options: {
@@ -812,7 +1097,7 @@ function initTrainingCurves() {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { min: 0.2, max: 0.5, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { min: 0.1, max: 0.25, grid: { color: 'rgba(255,255,255,0.05)' } },
                 x: { grid: { display: false } }
             }
         }
