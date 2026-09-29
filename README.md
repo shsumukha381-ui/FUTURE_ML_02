@@ -50,16 +50,7 @@ Upload a CSV file containing hundreds of tickets. The system processes them in b
 ### 📈 Advanced Insights Dashboard
 A comprehensive dashboard featuring model evaluation metrics, interactive category/priority distribution charts, and per-class performance breakdowns.
 
----
 
-## 📸 Screenshots
-
-*(Add screenshots of your application here to showcase the beautiful glassmorphism UI)*
-- **Dashboard View**: `![Dashboard](public/assets/dashboard.png)`
-- **Ticket Analyzer**: `![Analyzer](public/assets/analyzer.png)`
-- **Batch Upload**: `![Batch](public/assets/batch.png)`
-
----
 
 ## 🏗️ Architecture
 
